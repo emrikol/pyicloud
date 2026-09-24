@@ -113,6 +113,16 @@ class PyiCloudFailedLoginException(PyiCloudException):
         super().__init__(message, *args)
 
 
+class PyiCloudAccountLockedException(PyiCloudFailedLoginException):
+    """Apple rejected authentication because the account is locked."""
+
+    def __init__(self, code: int | str, response: Response) -> None:
+        """Keep the service error and response available without logging its body."""
+        self.code: int | str = code
+        super().__init__("Apple Account is locked for security reasons")
+        self.response = response
+
+
 class PyiCloudAcceptTermsException(PyiCloudException):
     """iCloud accept terms exception."""
 

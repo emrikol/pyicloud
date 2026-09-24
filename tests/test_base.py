@@ -24,6 +24,7 @@ from pyicloud.exceptions import (
     PyiCloud2FARequiredException,
     PyiCloud2SARequiredException,
     PyiCloudAcceptTermsException,
+    PyiCloudAccountLockedException,
     PyiCloudAPIResponseException,
     PyiCloudEndpointGoneException,
     PyiCloudFailedLoginException,
@@ -1736,6 +1737,33 @@ def test_handle_request_error_two_factor_json_decode_error(
             status_code=AppleAuthError.TWO_FACTOR_REQUIRED,
             response=response,
         )
+
+
+@pytest.mark.parametrize("code", [-20209, "-20209"])
+def test_handle_request_error_account_locked(
+    pyicloud_session: PyiCloudSession, code: int | str
+) -> None:
+    """A nested Apple service error identifies an account lock."""
+    response = MagicMock()
+    response.json.return_value = {
+        "serviceErrors": [
+            {
+                "code": code,
+                "message": "This Apple Account has been locked for security reasons.",
+                "private": "session-identifier",
+            }
+        ]
+    }
+    response.text = "response containing session-identifier"
+
+    with pytest.raises(PyiCloudAccountLockedException) as excinfo:
+        pyicloud_session._handle_request_error(status_code=403, response=response)
+
+    error = excinfo.value
+    assert error.code == code
+    assert error.response is response
+    assert isinstance(error, PyiCloudFailedLoginException)
+    assert "session-identifier" not in str(error)
 
 
 def test_request_pcs_for_service_icdrs_not_disabled(
