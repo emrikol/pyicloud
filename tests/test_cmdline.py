@@ -2646,7 +2646,7 @@ def test_security_key_flow() -> None:
 def test_security_key_account_lock_is_not_rewritten() -> None:
     """Security-key handling should preserve the account-lock state."""
     error = context_module.PyiCloudAccountLockedException("-20209", MagicMock())
-    fake_api = FakeAPI()
+    fake_api = MagicMock()
     fake_api.fido2_devices = [{"id": "sk-1"}]
     fake_api.confirm_security_key.side_effect = error
     state = context_module.CLIState.from_options(context_module.CLICommandOptions())
@@ -2655,6 +2655,7 @@ def test_security_key_account_lock_is_not_rewritten() -> None:
         state._handle_2fa(fake_api)
 
     assert excinfo.value is error
+    fake_api.confirm_security_key.assert_called_once_with({"id": "sk-1"})
 
 
 def test_trusted_device_2sa_flow() -> None:

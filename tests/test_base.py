@@ -1740,11 +1740,20 @@ def test_handle_request_error_two_factor_json_decode_error(
 
 
 @pytest.mark.parametrize("code", [-20209, "-20209"])
-def test_handle_request_error_account_locked(
-    pyicloud_session: PyiCloudSession, code: int | str
+@pytest.mark.parametrize(
+    "content_type", ["application/json;charset=UTF-8", "text/plain"]
+)
+def test_request_account_locked(
+    pyicloud_service_working: PyiCloudService,
+    code: int | str,
+    content_type: str,
 ) -> None:
-    """A nested Apple service error identifies an account lock."""
+    """A nested Apple service error identifies a lock through the request path."""
     response = MagicMock()
+    response.status_code = AppleAuthError.FORBIDDEN
+    response.ok = False
+    response.reason = "Forbidden"
+    response.headers = {"Content-Type": content_type}
     response.json.return_value = {
         "serviceErrors": [
             {
@@ -1755,9 +1764,21 @@ def test_handle_request_error_account_locked(
         ]
     }
     response.text = "response containing session-identifier"
+    response.raise_for_status.side_effect = HTTPError(response=response)
 
-    with pytest.raises(PyiCloudAccountLockedException) as excinfo:
-        pyicloud_session._handle_request_error(status_code=403, response=response)
+    with patch.object(PyiCloudSession, "_load_session_data"):
+        pyicloud_session = PyiCloudSession(
+            pyicloud_service_working, "", cookie_directory=""
+        )
+
+    with (
+        patch("requests.Session.request", return_value=response),
+        patch.object(pyicloud_session, "_save_session_data"),
+        pytest.raises(PyiCloudAccountLockedException) as excinfo,
+    ):
+        pyicloud_session.request(
+            "POST", "https://idmsa.apple.com/appleauth/auth/signin/complete"
+        )
 
     error = excinfo.value
     assert error.code == code

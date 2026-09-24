@@ -345,6 +345,7 @@ class PyiCloudSession(requests.Session):
                 self._is_json_response(response)
                 or status_code
                 in [
+                    AppleAuthError.FORBIDDEN,
                     AppleAuthError.TWO_FACTOR_REQUIRED,
                     AppleAuthError.FIND_MY_REAUTH_REQUIRED,
                     AppleAuthError.LOGIN_TOKEN_EXPIRED,

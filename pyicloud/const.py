@@ -33,6 +33,7 @@ class AppleAuthError(IntEnum):
     """Apple auth error codes."""
 
     SUCCESS = 200
+    FORBIDDEN = 403
     LOGIN_TOKEN_EXPIRED = 421
     TWO_FACTOR_REQUIRED = 409
     FIND_MY_REAUTH_REQUIRED = 450
