@@ -1766,6 +1766,46 @@ def test_handle_request_error_account_locked(
     assert "session-identifier" not in str(error)
 
 
+def test_account_locked_bypasses_authentication_fallbacks(
+    pyicloud_service: PyiCloudService,
+) -> None:
+    """An account lock is not retried as an ordinary failed login."""
+    error = PyiCloudAccountLockedException("-20209", MagicMock())
+    pyicloud_service.data = {"apps": {"find": {"canLaunchWithOneFactor": True}}}
+
+    with patch.object(
+        pyicloud_service,
+        "_authenticate_with_credentials_service",
+        side_effect=error,
+    ) as authenticate_with_credentials:
+        with pytest.raises(PyiCloudAccountLockedException):
+            pyicloud_service._try_service_one_factor_login("find")
+        authenticate_with_credentials.assert_called_once_with("find")
+
+    with (
+        patch.object(
+            pyicloud_service,
+            "_authenticate_with_token",
+            side_effect=error,
+        ) as authenticate_with_token,
+        patch.object(pyicloud_service, "_srp_authentication") as srp_authentication,
+    ):
+        with pytest.raises(PyiCloudAccountLockedException):
+            pyicloud_service._authenticate()
+        authenticate_with_token.assert_called_once_with()
+        srp_authentication.assert_not_called()
+
+    pyicloud_service.session.data["session_token"] = "token"
+    with patch.object(
+        pyicloud_service,
+        "_authenticate_with_token",
+        side_effect=error,
+    ) as authenticate_with_paused_token:
+        with pytest.raises(PyiCloudAccountLockedException):
+            pyicloud_service._login_with_paused_token()
+        authenticate_with_paused_token.assert_called_once_with(require_trust=False)
+
+
 def test_request_pcs_for_service_icdrs_not_disabled(
     pyicloud_service: PyiCloudService, monkeypatch: pytest.MonkeyPatch
 ) -> None:

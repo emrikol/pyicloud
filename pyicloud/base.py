@@ -30,6 +30,7 @@ from pyicloud.const import ACCOUNT_NAME, CONTENT_TYPE_JSON, CONTENT_TYPE_TEXT
 from pyicloud.exceptions import (
     PyiCloud2FARequiredException,
     PyiCloudAcceptTermsException,
+    PyiCloudAccountLockedException,
     PyiCloudAPIResponseException,
     PyiCloudFailedLoginException,
     PyiCloudNoTrustedNumberAvailable,
@@ -418,6 +419,8 @@ class PyiCloudService:
         try:
             self._authenticate_with_credentials_service(service)
             return True
+        except PyiCloudAccountLockedException:
+            raise
         except PyiCloudFailedLoginException:
             LOGGER.debug("Could not log into service. Attempting brand new login.")
             return False
@@ -579,6 +582,8 @@ class PyiCloudService:
 
         try:
             self._authenticate_with_token()
+        except PyiCloudAccountLockedException:
+            raise
         except (PyiCloudFailedLoginException, PyiCloud2FARequiredException):
             paused_login_succeeded = self._srp_authentication(pause_2fa=pause_2fa)
             if self._requires_mfa:
@@ -711,6 +716,8 @@ class PyiCloudService:
         )
         try:
             self._authenticate_with_token(require_trust=False)
+        except PyiCloudAccountLockedException:
+            raise
         except (PyiCloudAPIResponseException, PyiCloudFailedLoginException):
             LOGGER.debug("Paused session-token login failed; falling back to MFA flow.")
             return False
